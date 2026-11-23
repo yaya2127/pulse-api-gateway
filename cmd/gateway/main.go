@@ -67,3 +67,52 @@ func buildProxyForRoute(rCfg config.RouteConfig) (*proxy.ReverseProxy, []*proxy.
 
 	return proxy.NewReverseProxy(balancer, cb, timeout), upstreams, nil
 }
+
+func main() {
+	flag.Parse()
+	printBanner()
+
+	logger := log.New(os.Stdout, "[PULSE] ", log.LstdFlags|log.Lmicroseconds)
+	logger.Printf("Loading configuration from %s...", *configPath)
+
+	cfg, err := config.LoadConfig(*configPath)
+	if err != nil {
+		logger.Printf("Warning: Using default fallback config (%v)", err)
+		cfg = &config.Config{
+			Server: config.ServerConfig{Port: *portFlag, MetricsPort: *metricsFlag},
+		}
+	}
+
+	metricsCol := metrics.NewMetricsCollector()
+	mux := http.NewServeMux()
+	var allUpstreams []*proxy.Upstream
+
+	for _, rCfg := range cfg.Routes {
+		rp, upstreams, err := buildProxyForRoute(rCfg)
+		if err != nil {
+			logger.Fatalf("Failed to initialize route %s: %v", rCfg.PathPrefix, err)
+		}
+		allUpstreams = append(allUpstreams, upstreams...)
+
+		chain := middleware.NewChain(
+			middleware.RequestIDMiddleware,
+			middleware.RecoveryMiddleware(logger),
+			middleware.CORSMiddleware(middleware.DefaultCORSConfig()),
+			middleware.LoggerMiddleware(logger),
+		)
+
+		if rCfg.RateLimitRPM > 0 {
+			rateLimiter := middleware.NewRateLimiter(float64(rCfg.RateLimitBurst), float64(rCfg.RateLimitRPM)/60.0)
+			rateLimiter.StartCleanup(10*time.Minute, 30*time.Minute)
+			chain = chain.Append(rateLimiter.Middleware())
+		}
+
+		if rCfg.RequireAuth {
+			jwtVal := middleware.NewJWTValidator("pulse-secure-secret-key-2026")
+			chain = chain.Append(jwtVal.Middleware([]string{"/health", "/metrics"}))
+		}
+
+		mux.Handle(rCfg.PathPrefix, chain.Then(rp))
+		logger.Printf("Configured route %s -> %d upstreams (strategy: %s)",
+			rCfg.PathPrefix, len(upstreams), rCfg.BalancerStrategy)
+	}
