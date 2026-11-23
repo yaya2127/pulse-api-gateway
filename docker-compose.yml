@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      - PULSE_PORT=8080
+    depends_on:
+      - service-users
+      - service-orders
+    restart: unless-stopped
+
+  service-users:
+    image: alpine:3.19
+    command: ["sh", "-c", "while true; do echo -e 'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"service":"users"}' | nc -l -p 9001; done"]
+    ports:
+      - "9001:9001"
+
+  service-orders:
+    image: alpine:3.19
+    command: ["sh", "-c", "while true; do echo -e 'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"service":"orders"}' | nc -l -p 9003; done"]
+    ports:
+      - "9003:9003"
