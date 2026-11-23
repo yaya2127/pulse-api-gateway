@@ -59,3 +59,31 @@ func (v *JWTValidator) verifySignature(headerPayload, sig string) error {
 	}
 	return nil
 }
+
+func (v *JWTValidator) Validate(tokenString string) (*JWTClaims, error) {
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		return nil, ErrInvalidToken
+	}
+
+	headerPayload := parts[0] + "." + parts[1]
+	if err := v.verifySignature(headerPayload, parts[2]); err != nil {
+		return nil, err
+	}
+
+	payloadBytes, err := base64URLDecode(parts[1])
+	if err != nil {
+		return nil, ErrInvalidToken
+	}
+
+	var claims JWTClaims
+	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
+		return nil, ErrInvalidToken
+	}
+
+	if claims.ExpiresAt > 0 && time.Now().Unix() > claims.ExpiresAt {
+		return nil, ErrExpiredToken
+	}
+
+	return &claims, nil
+}
