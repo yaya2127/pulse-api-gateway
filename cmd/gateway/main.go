@@ -38,3 +38,32 @@ const banner = `
 func printBanner() {
 	fmt.Println(banner)
 }
+
+func buildProxyForRoute(rCfg config.RouteConfig) (*proxy.ReverseProxy, []*proxy.Upstream, error) {
+	var upstreams []*proxy.Upstream
+	for _, upCfg := range rCfg.Upstreams {
+		u, err := proxy.NewUpstream(upCfg.URL, upCfg.Weight)
+		if err != nil {
+			return nil, nil, err
+		}
+		upstreams = append(upstreams, u)
+	}
+
+	var balancer proxy.Balancer
+	switch rCfg.BalancerStrategy {
+	case "least_conn":
+		balancer = proxy.NewLeastConnectionsBalancer(upstreams)
+	case "ip_hash":
+		balancer = proxy.NewIPHashBalancer(upstreams)
+	default:
+		balancer = proxy.NewRoundRobinBalancer(upstreams)
+	}
+
+	cb := proxy.NewCircuitBreaker(5, 10*time.Second)
+	timeout := time.Duration(rCfg.TimeoutSeconds) * time.Second
+	if timeout == 0 {
+		timeout = 15 * time.Second
+	}
+
+	return proxy.NewReverseProxy(balancer, cb, timeout), upstreams, nil
+}
