@@ -27,3 +27,23 @@ func NewHealthChecker(upstreams []*proxy.Upstream, interval, timeout time.Durati
 		stopCh:    make(chan struct{}),
 	}
 }
+
+func (hc *HealthChecker) Start() {
+	go func() {
+		ticker := time.NewTicker(hc.interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				hc.pingAll()
+			case <-hc.stopCh:
+				return
+			}
+		}
+	}()
+}
+
+func (hc *HealthChecker) Stop() {
+	close(hc.stopCh)
+}
