@@ -73,3 +73,24 @@ func (cb *CircuitBreaker) RecordFailure() {
 		cb.lastTripped = time.Now()
 	}
 }
+
+func (cb *CircuitBreaker) RecordSuccess() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	if cb.state == StateHalfOpen {
+		cb.successes++
+		if cb.successes >= 2 {
+			cb.state = StateClosed
+			cb.failures = 0
+		}
+	} else if cb.state == StateClosed {
+		cb.failures = 0
+	}
+}
+
+func (cb *CircuitBreaker) GetState() CircuitState {
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	return cb.state
+}
