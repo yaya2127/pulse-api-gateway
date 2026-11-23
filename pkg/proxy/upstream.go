@@ -31,3 +31,36 @@ func NewUpstream(targetURL string, weight int) (*Upstream, error) {
 	u.alive.Store(true)
 	return u, nil
 }
+
+func (u *Upstream) IsAlive() bool {
+	return u.alive.Load()
+}
+
+func (u *Upstream) SetAlive(alive bool) {
+	u.alive.Store(alive)
+}
+
+func (u *Upstream) IncrementConns() {
+	u.activeConns.Add(1)
+	u.totalRequests.Add(1)
+}
+
+func (u *Upstream) DecrementConns() {
+	u.activeConns.Add(-1)
+}
+
+func (u *Upstream) RecordError() {
+	u.totalErrors.Add(1)
+}
+
+func (u *Upstream) GetActiveConns() int64 {
+	return u.activeConns.Load()
+}
+
+func (u *Upstream) GetTotalRequests() uint64 {
+	return u.totalRequests.Load()
+}
+
+func (u *Upstream) GetTotalErrors() uint64 {
+	return u.totalErrors.Load()
+}
