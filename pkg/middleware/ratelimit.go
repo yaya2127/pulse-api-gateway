@@ -101,3 +101,22 @@ func (rl *RateLimiter) Middleware() Middleware {
 		})
 	}
 }
+
+func (rl *RateLimiter) StartCleanup(interval time.Duration, maxIdle time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		for range ticker.C {
+			now := time.Now()
+			rl.buckets.Range(func(key, value any) bool {
+				tb := value.(*TokenBucket)
+				tb.mu.Lock()
+				idle := now.Sub(tb.lastRefill)
+				tb.mu.Unlock()
+				if idle > maxIdle {
+					rl.buckets.Delete(key)
+				}
+				return true
+			})
+		}
+	}()
+}
