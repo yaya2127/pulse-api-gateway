@@ -38,3 +38,26 @@ func TestCircuitBreakerTransitions(t *testing.T) {
 		t.Fatalf("expected state Closed after probationary successes, got %v", cb.GetState())
 	}
 }
+
+func TestCircuitBreakerConcurrency(t *testing.T) {
+	cb := NewCircuitBreaker(10, 100*time.Millisecond)
+	done := make(chan bool)
+
+	for i := 0; i < 20; i++ {
+		go func() {
+			for j := 0; j < 50; j++ {
+				cb.Allow()
+				cb.RecordSuccess()
+			}
+			done <- true
+		}()
+	}
+
+	for i := 0; i < 20; i++ {
+		<-done
+	}
+
+	if cb.GetState() != StateClosed {
+		t.Errorf("expected circuit to remain Closed, got %v", cb.GetState())
+	}
+}
