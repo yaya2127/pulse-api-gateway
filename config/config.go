@@ -32,3 +32,37 @@ type Config struct {
 	Server ServerConfig  `json:"server"`
 	Routes []RouteConfig `json:"routes"`
 }
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strconv"
+)
+
+func LoadConfig(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config JSON: %w", err)
+	}
+
+	if envPort := os.Getenv("PULSE_PORT"); envPort != "" {
+		if p, err := strconv.Atoi(envPort); err == nil {
+			cfg.Server.Port = p
+		}
+	}
+
+	if cfg.Server.Port == 0 {
+		cfg.Server.Port = 8080
+	}
+	if cfg.Server.MetricsPort == 0 {
+		cfg.Server.MetricsPort = 9090
+	}
+
+	return &cfg, nil
+}
