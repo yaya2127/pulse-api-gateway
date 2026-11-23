@@ -45,3 +45,20 @@ func TestLeastConnectionsBalancer(t *testing.T) {
 		t.Errorf("expected 127.0.0.1:9002 with 1 conn, got %s", next.URL.Host)
 	}
 }
+
+func TestIPHashBalancer(t *testing.T) {
+	u1, _ := NewUpstream("http://127.0.0.1:9001", 1)
+	u2, _ := NewUpstream("http://127.0.0.1:9002", 1)
+
+	balancer := NewIPHashBalancer([]*Upstream{u1, u2})
+	req1 := httptest.NewRequest("GET", "/test", nil)
+	req1.RemoteAddr = "192.168.1.100:4321"
+
+	first, _ := balancer.Next(req1)
+	for i := 0; i < 5; i++ {
+		next, _ := balancer.Next(req1)
+		if next.URL.Host != first.URL.Host {
+			t.Errorf("IPHash sticky session broken: got %s expected %s", next.URL.Host, first.URL.Host)
+		}
+	}
+}
