@@ -87,3 +87,44 @@ func (v *JWTValidator) Validate(tokenString string) (*JWTClaims, error) {
 
 	return &claims, nil
 }
+
+import (
+	"context"
+)
+
+const ClaimsKey contextKey = "jwt_claims"
+
+func (v *JWTValidator) Middleware(skipPaths []string) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for _, p := range skipPaths {
+				if strings.HasPrefix(r.URL.Path, p) {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				fmt.Fprintf(w, `{"error":"Unauthorized","message":"Missing or invalid bearer token"}`)
+				return
+			}
+
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := v.Validate(tokenStr)
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				fmt.Fprintf(w, `{"error":"Unauthorized","message":"%s"}`, err.Error())
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), ClaimsKey, claims)
+			w.Header().Set("X-User-ID", claims.Subject)
+			w.Header().Set("X-User-Role", claims.Role)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
