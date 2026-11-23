@@ -59,3 +59,6 @@ docker-compose up -d --build
 ## 👤 Author
 - **Yared Kinfe** ([@yaya2127](https://github.com/yaya2127))
 - Portfolio: [yareds.tech](https://yareds.tech)
+
+## 🏷️ Release
+- **v1.0.0**: Initial production release with full middleware pipeline, circuit breaker, and metrics exporter.
