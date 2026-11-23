@@ -150,3 +150,58 @@ func (b *IPHashBalancer) AddUpstream(u *Upstream) {
 	defer b.mu.Unlock()
 	b.upstreams = append(b.upstreams, u)
 }
+
+type WeightedRoundRobinBalancer struct {
+	upstreams []*Upstream
+	current   int
+	weight    int
+	mu        sync.Mutex
+}
+
+func NewWeightedRoundRobinBalancer(upstreams []*Upstream) *WeightedRoundRobinBalancer {
+	return &WeightedRoundRobinBalancer{upstreams: upstreams}
+}
+
+func (b *WeightedRoundRobinBalancer) Next(r *http.Request) (*Upstream, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	n := len(b.upstreams)
+	if n == 0 {
+		return nil, ErrNoAvailableUpstream
+	}
+
+	maxWeight := 0
+	for _, u := range b.upstreams {
+		if u.IsAlive() && u.Weight > maxWeight {
+			maxWeight = u.Weight
+		}
+	}
+	if maxWeight == 0 {
+		return nil, ErrNoAvailableUpstream
+	}
+
+	for {
+		b.current = (b.current + 1) % n
+		if b.current == 0 {
+			b.weight--
+			if b.weight <= 0 {
+				b.weight = maxWeight
+			}
+		}
+		u := b.upstreams[b.current]
+		if u.IsAlive() && u.Weight >= b.weight {
+			return u, nil
+		}
+	}
+}
+
+func (b *WeightedRoundRobinBalancer) GetUpstreams() []*Upstream {
+	return b.upstreams
+}
+
+func (b *WeightedRoundRobinBalancer) AddUpstream(u *Upstream) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.upstreams = append(b.upstreams, u)
+}
