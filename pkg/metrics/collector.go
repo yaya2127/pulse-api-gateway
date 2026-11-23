@@ -43,3 +43,15 @@ func (mc *MetricsCollector) RecordRequest(route string, statusCode int, duration
 		}
 	}
 }
+
+func (mc *MetricsCollector) IncActive() {
+	mc.ActiveConnections.Add(1)
+}
+
+func (mc *MetricsCollector) DecActive() {
+	mc.ActiveConnections.Add(-1)
+}
+
+func (mc *MetricsCollector) IncRateLimitDrop() {
+	mc.RateLimitDrops.Add(1)
+}
