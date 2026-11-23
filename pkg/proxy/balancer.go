@@ -103,3 +103,50 @@ func (b *LeastConnectionsBalancer) AddUpstream(u *Upstream) {
 	defer b.mu.Unlock()
 	b.upstreams = append(b.upstreams, u)
 }
+
+import (
+	"hash/fnv"
+)
+
+type IPHashBalancer struct {
+	upstreams []*Upstream
+	mu        sync.RWMutex
+}
+
+func NewIPHashBalancer(upstreams []*Upstream) *IPHashBalancer {
+	return &IPHashBalancer{upstreams: upstreams}
+}
+
+func (b *IPHashBalancer) Next(r *http.Request) (*Upstream, error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	var alive []*Upstream
+	for _, u := range b.upstreams {
+		if u.IsAlive() {
+			alive = append(alive, u)
+		}
+	}
+	if len(alive) == 0 {
+		return nil, ErrNoAvailableUpstream
+	}
+
+	ip := r.RemoteAddr
+	hasher := fnv.New32a()
+	hasher.Write([]byte(ip))
+	idx := int(hasher.Sum32() % uint32(len(alive)))
+
+	return alive[idx], nil
+}
+
+func (b *IPHashBalancer) GetUpstreams() []*Upstream {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.upstreams
+}
+
+func (b *IPHashBalancer) AddUpstream(u *Upstream) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.upstreams = append(b.upstreams, u)
+}
