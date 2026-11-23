@@ -46,3 +46,30 @@ func NewCircuitBreaker(maxFailures int, timeout time.Duration) *CircuitBreaker {
 		state:       StateClosed,
 	}
 }
+
+func (cb *CircuitBreaker) Allow() bool {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	now := time.Now()
+	if cb.state == StateOpen {
+		if now.Sub(cb.lastTripped) > cb.timeout {
+			cb.state = StateHalfOpen
+			cb.successes = 0
+			return true
+		}
+		return false
+	}
+	return true
+}
+
+func (cb *CircuitBreaker) RecordFailure() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	cb.failures++
+	if cb.state == StateHalfOpen || cb.failures >= cb.maxFailures {
+		cb.state = StateOpen
+		cb.lastTripped = time.Now()
+	}
+}
