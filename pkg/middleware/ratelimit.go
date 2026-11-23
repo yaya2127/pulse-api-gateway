@@ -70,3 +70,34 @@ func (rl *RateLimiter) getBucket(key string) *TokenBucket {
 	actual, _ := rl.buckets.LoadOrStore(key, newBucket)
 	return actual.(*TokenBucket)
 }
+
+func (rl *RateLimiter) Middleware() Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				clientIP = r.RemoteAddr
+			}
+
+			bucket := rl.getBucket(clientIP)
+			allowed, remaining, retryAfter := bucket.Allow()
+
+			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(int(rl.capacity)))
+			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
+
+			if !allowed {
+				retrySec := int(math.Ceil(retryAfter.Seconds()))
+				if retrySec < 1 {
+					retrySec = 1
+				}
+				w.Header().Set("Retry-After", strconv.Itoa(retrySec))
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusTooManyRequests)
+				fmt.Fprintf(w, `{"error":"Rate limit exceeded","retry_after_seconds":%d}`, retrySec)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
