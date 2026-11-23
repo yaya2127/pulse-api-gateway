@@ -47,3 +47,26 @@ func (tb *TokenBucket) Allow() (bool, int, time.Duration) {
 	retryAfter := time.Duration((missing / tb.refillRate) * float64(time.Second))
 	return false, 0, retryAfter
 }
+
+type RateLimiter struct {
+	buckets    sync.Map
+	capacity   float64
+	refillRate float64
+}
+
+func NewRateLimiter(capacity float64, refillRate float64) *RateLimiter {
+	return &RateLimiter{
+		capacity:   capacity,
+		refillRate: refillRate,
+	}
+}
+
+func (rl *RateLimiter) getBucket(key string) *TokenBucket {
+	val, loaded := rl.buckets.Load(key)
+	if loaded {
+		return val.(*TokenBucket)
+	}
+	newBucket := NewTokenBucket(rl.capacity, rl.refillRate)
+	actual, _ := rl.buckets.LoadOrStore(key, newBucket)
+	return actual.(*TokenBucket)
+}
