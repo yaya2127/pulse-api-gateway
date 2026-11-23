@@ -39,3 +39,27 @@ func TestReverseProxyForwarding(t *testing.T) {
 		t.Errorf("unexpected body: %s", string(body))
 	}
 }
+
+func TestReverseProxyCircuitBreakerTrip(t *testing.T) {
+	u, _ := NewUpstream("http://127.0.0.1:54321", 1) // unreachable port
+	balancer := NewRoundRobinBalancer([]*Upstream{u})
+	cb := NewCircuitBreaker(2, 500*time.Millisecond)
+	proxy := NewReverseProxy(balancer, cb, 100*time.Millisecond)
+
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest("GET", "/", nil)
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadGateway {
+			t.Errorf("expected 502, got %d", rec.Code)
+		}
+	}
+
+	req := httptest.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+	proxy.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 circuit open, got %d", rec.Code)
+	}
+}
