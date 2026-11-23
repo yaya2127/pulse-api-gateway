@@ -108,3 +108,14 @@ func (rp *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
+
+func (rp *ReverseProxy) handleError(w http.ResponseWriter, r *http.Request, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	if ctxErr := r.Context().Err(); ctxErr == context.DeadlineExceeded {
+		w.WriteHeader(http.StatusGatewayTimeout)
+		fmt.Fprintf(w, `{"error":"Gateway timeout","message":"Upstream server took too long to respond"}`)
+		return
+	}
+	w.WriteHeader(http.StatusBadGateway)
+	fmt.Fprintf(w, `{"error":"Bad gateway","message":"Failed to reach upstream service: %s"}`, err.Error())
+}
