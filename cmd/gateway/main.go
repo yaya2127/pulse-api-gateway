@@ -116,3 +116,36 @@ func main() {
 		logger.Printf("Configured route %s -> %d upstreams (strategy: %s)",
 			rCfg.PathPrefix, len(upstreams), rCfg.BalancerStrategy)
 	}
+
+mux.HandleFunc("/live", health.LivenessHandler())
+	mux.HandleFunc("/ready", health.ReadinessHandler(allUpstreams))
+
+	metricsMux := http.NewServeMux()
+	metricsMux.HandleFunc("/metrics", metrics.PrometheusHandler(metricsCol))
+
+	metricsServer := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Server.MetricsPort),
+		Handler: metricsMux,
+	}
+
+	go func() {
+		logger.Printf("Prometheus metrics server listening on :%d", cfg.Server.MetricsPort)
+		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Printf("Metrics server error: %v", err)
+		}
+	}()
+
+	mainServer := &http.Server{
+		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	go func() {
+		logger.Printf("Pulse API Gateway listening on http://0.0.0.0:%d", cfg.Server.Port)
+		if err := mainServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatalf("Gateway server error: %v", err)
+		}
+	}()
