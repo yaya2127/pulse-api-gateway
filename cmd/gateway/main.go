@@ -149,3 +149,18 @@ mux.HandleFunc("/live", health.LivenessHandler())
 			logger.Fatalf("Gateway server error: %v", err)
 		}
 	}()
+
+stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+
+	logger.Println("Initiating graceful shutdown...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_ = metricsServer.Shutdown(ctx)
+	if err := mainServer.Shutdown(ctx); err != nil {
+		logger.Fatalf("Server shutdown failed: %v", err)
+	}
+	logger.Println("Pulse API Gateway exited cleanly.")
+}
