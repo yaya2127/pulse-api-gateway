@@ -55,3 +55,7 @@ func (mc *MetricsCollector) DecActive() {
 func (mc *MetricsCollector) IncRateLimitDrop() {
 	mc.RateLimitDrops.Add(1)
 }
+
+func (mc *MetricsCollector) GetStats() (uint64, int64, uint64, uint64) {
+	return mc.TotalRequests.Load(), mc.ActiveConnections.Load(), mc.RateLimitDrops.Load(), mc.TotalErrors.Load()
+}
