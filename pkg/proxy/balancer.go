@@ -58,3 +58,48 @@ func (b *RoundRobinBalancer) AddUpstream(u *Upstream) {
 	defer b.mu.Unlock()
 	b.upstreams = append(b.upstreams, u)
 }
+
+type LeastConnectionsBalancer struct {
+	upstreams []*Upstream
+	mu        sync.RWMutex
+}
+
+func NewLeastConnectionsBalancer(upstreams []*Upstream) *LeastConnectionsBalancer {
+	return &LeastConnectionsBalancer{upstreams: upstreams}
+}
+
+func (b *LeastConnectionsBalancer) Next(r *http.Request) (*Upstream, error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	var candidate *Upstream
+	minConns := int64(^uint64(0) >> 1) // max int64
+
+	for _, u := range b.upstreams {
+		if !u.IsAlive() {
+			continue
+		}
+		conns := u.GetActiveConns()
+		if conns < minConns {
+			minConns = conns
+			candidate = u
+		}
+	}
+
+	if candidate == nil {
+		return nil, ErrNoAvailableUpstream
+	}
+	return candidate, nil
+}
+
+func (b *LeastConnectionsBalancer) GetUpstreams() []*Upstream {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.upstreams
+}
+
+func (b *LeastConnectionsBalancer) AddUpstream(u *Upstream) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.upstreams = append(b.upstreams, u)
+}
