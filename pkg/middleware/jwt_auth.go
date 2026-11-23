@@ -43,3 +43,19 @@ func base64URLDecode(s string) ([]byte, error) {
 func base64URLEncode(b []byte) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
+
+func (v *JWTValidator) verifySignature(headerPayload, sig string) error {
+	mac := hmac.New(sha256.New, v.secret)
+	mac.Write([]byte(headerPayload))
+	expectedSig := mac.Sum(nil)
+
+	actualSig, err := base64URLDecode(sig)
+	if err != nil {
+		return ErrInvalidToken
+	}
+
+	if !hmac.Equal(expectedSig, actualSig) {
+		return ErrInvalidSig
+	}
+	return nil
+}
