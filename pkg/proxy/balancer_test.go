@@ -62,3 +62,24 @@ func TestIPHashBalancer(t *testing.T) {
 		}
 	}
 }
+
+func TestWeightedRoundRobinBalancer(t *testing.T) {
+	u1, _ := NewUpstream("http://127.0.0.1:9001", 3)
+	u2, _ := NewUpstream("http://127.0.0.1:9002", 1)
+
+	balancer := NewWeightedRoundRobinBalancer([]*Upstream{u1, u2})
+	req := httptest.NewRequest("GET", "/test", nil)
+
+	counts := make(map[string]int)
+	for i := 0; i < 40; i++ {
+		next, err := balancer.Next(req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		counts[next.URL.Host]++
+	}
+
+	if counts["127.0.0.1:9001"] <= counts["127.0.0.1:9002"] {
+		t.Errorf("expected weighted u1 > u2, got: %v", counts)
+	}
+}
