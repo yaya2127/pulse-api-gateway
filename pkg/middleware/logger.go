@@ -22,3 +22,7 @@ func (lw *loggingResponseWriter) Write(b []byte) (int, error) {
 	lw.bytesWritten += int64(n)
 	return n, err
 }
+
+func newLoggingResponseWriter(w http.ResponseWriter) *loggingResponseWriter {
+	return &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+}
