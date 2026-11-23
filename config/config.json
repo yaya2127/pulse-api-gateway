@@ -1,0 +1,37 @@
+{
+  "server": {
+    "port": 8080,
+    "metrics_port": 9090,
+    "read_timeout": 15000000000,
+    "write_timeout": 15000000000,
+    "idle_timeout": 60000000000
+  },
+  "routes": [
+    {
+      "path_prefix": "/api/v1/users",
+      "strip_prefix": false,
+      "balancer_strategy": "round_robin",
+      "upstreams": [
+        { "url": "http://127.0.0.1:9001", "weight": 1 },
+        { "url": "http://127.0.0.1:9002", "weight": 1 }
+      ],
+      "require_auth": true,
+      "rate_limit_rpm": 600,
+      "rate_limit_burst": 50,
+      "timeout_seconds": 10
+    },
+    {
+      "path_prefix": "/api/v1/orders",
+      "strip_prefix": false,
+      "balancer_strategy": "least_conn",
+      "upstreams": [
+        { "url": "http://127.0.0.1:9003", "weight": 2 },
+        { "url": "http://127.0.0.1:9004", "weight": 1 }
+      ],
+      "require_auth": true,
+      "rate_limit_rpm": 1200,
+      "rate_limit_burst": 100,
+      "timeout_seconds": 15
+    }
+  ]
+}
