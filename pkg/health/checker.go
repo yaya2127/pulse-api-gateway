@@ -47,3 +47,30 @@ func (hc *HealthChecker) Start() {
 func (hc *HealthChecker) Stop() {
 	close(hc.stopCh)
 }
+
+func (hc *HealthChecker) pingAll() {
+	for _, u := range hc.upstreams {
+		go hc.checkUpstream(u)
+	}
+}
+
+func (hc *HealthChecker) checkUpstream(u *proxy.Upstream) {
+	pingURL := u.URL.Scheme + "://" + u.URL.Host + hc.path
+	ctx, cancel := context.WithTimeout(context.Background(), hc.timeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", pingURL, nil)
+	if err != nil {
+		u.SetAlive(false)
+		return
+	}
+
+	resp, err := hc.client.Do(req)
+	if err != nil || resp.StatusCode >= 500 {
+		u.SetAlive(false)
+		return
+	}
+	defer resp.Body.Close()
+
+	u.SetAlive(true)
+}
