@@ -35,3 +35,11 @@ type JWTValidator struct {
 func NewJWTValidator(secret string) *JWTValidator {
 	return &JWTValidator{secret: []byte(secret)}
 }
+
+func base64URLDecode(s string) ([]byte, error) {
+	return base64.RawURLEncoding.DecodeString(s)
+}
+
+func base64URLEncode(b []byte) string {
+	return base64.RawURLEncoding.EncodeToString(b)
+}
