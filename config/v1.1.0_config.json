@@ -1,0 +1,35 @@
+{
+  "server": {
+    "port": 8443,
+    "tls": {
+      "enabled": true,
+      "cert_file": "certs/server.crt",
+      "key_file": "certs/server.key",
+      "min_version": "TLS13",
+      "mtls": {
+        "enabled": true,
+        "client_ca_file": "certs/ca.crt",
+        "allowed_common_names": ["trusted-edge-worker", "chronos-event-producer"]
+      }
+    }
+  },
+  "canary": {
+    "enabled": true,
+    "routes": [
+      {
+        "path_prefix": "/api/v1/payments",
+        "stable_pool": "http://payments-v1:8080",
+        "canary_pool": "http://payments-v2:8080",
+        "weight_percent": 10
+      }
+    ]
+  },
+  "rate_limiter": {
+    "capacity": 50000,
+    "refill_rate": 10000
+  },
+  "circuit_breaker": {
+    "failure_threshold": 5,
+    "recovery_timeout_sec": 10
+  }
+}
