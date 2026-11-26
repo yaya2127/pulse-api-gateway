@@ -62,3 +62,9 @@ docker-compose up -d --build
 
 ## 🏷️ Release
 - **v1.0.0**: Initial production release with full middleware pipeline, circuit breaker, and metrics exporter.
+
+## v1.1.0 Release Highlights
+* **W3C Distributed Tracing**: Full `traceparent` propagation across microservices.
+* **Canary Blue/Green Engine**: Safe progressive rollouts with sticky sessions.
+* **Mutual TLS (mTLS)**: Enterprise zero-trust certificate validation.
+* **Smooth Weighted Round Robin**: High-concurrency balanced traffic distribution.
