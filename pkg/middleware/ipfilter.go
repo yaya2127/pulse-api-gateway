@@ -32,3 +32,38 @@ func NewIPFilter(mode IPFilterMode, cidrs []string) (*IPFilter, error) {
 	}
 	return &IPFilter{mode: mode, subnets: subnets}, nil
 }
+
+func (f *IPFilter) IsAllowed(ip net.IP) bool {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	matched := false
+	for _, netw := range f.subnets {
+		if netw.Contains(ip) {
+			matched = true
+			break
+		}
+	}
+
+	if f.mode == ModeAllowlist {
+		return matched
+	}
+	return !matched
+}
+
+func (f *IPFilter) Handler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			host = r.RemoteAddr
+		}
+
+		ip := net.ParseIP(strings.TrimSpace(host))
+		if ip == nil || !f.IsAllowed(ip) {
+			http.Error(w, "Forbidden: IP rejected by security gateway policy", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
