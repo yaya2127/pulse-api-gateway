@@ -27,3 +27,27 @@ func NewCanaryRouter(rule CanaryRule, stable, canary *Upstream) *CanaryRouter {
 		canaryTarget: canary,
 	}
 }
+
+func (c *CanaryRouter) Select(r *http.Request) *Upstream {
+	// 1. Explicit Header Override
+	if c.rule.HeaderKey != "" && r.Header.Get(c.rule.HeaderKey) == c.rule.HeaderValue {
+		return c.canaryTarget
+	}
+
+	// 2. Cookie Sticky Routing
+	if c.rule.CookieName != "" {
+		if cookie, err := r.Cookie(c.rule.CookieName); err == nil && cookie.Value == "canary" {
+			return c.canaryTarget
+		}
+	}
+
+	// 3. Percentage Split
+	if c.rule.WeightRatio > 0 {
+		val := atomic.AddUint64(&c.counter, 1) % 100
+		if uint32(val) < c.rule.WeightRatio {
+			return c.canaryTarget
+		}
+	}
+
+	return c.stableTarget
+}
