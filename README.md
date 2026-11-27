@@ -68,3 +68,9 @@ docker-compose up -d --build
 * **Canary Blue/Green Engine**: Safe progressive rollouts with sticky sessions.
 * **Mutual TLS (mTLS)**: Enterprise zero-trust certificate validation.
 * **Smooth Weighted Round Robin**: High-concurrency balanced traffic distribution.
+
+## v1.2.0 Release Highlights
+* **gRPC-Web Proxying**: Native browser streaming support with automatic trailer translation.
+* **Sliding-Window Rate Limiter**: High-concurrency quota enforcement.
+* **Speculative Request Hedging**: Sub-millisecond tail latency elimination.
+* **WASM Filter Architecture**: Extensible request/response header interception plugins.
